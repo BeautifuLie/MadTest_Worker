@@ -55,25 +55,22 @@ func (a *AWSFs) GetMsg(msgCh chan *sqs.ReceiveMessageOutput) {
 			QueueUrl:            &a.urlQueue,
 			MaxNumberOfMessages: aws.Int64(10),
 			WaitTimeSeconds:     aws.Int64(10),
-			// MessageAttributeNames: []*string{aws.String("All")},
 		})
 
 		if err != nil {
 			fmt.Printf("failed to fetch sqs message %v", err)
 			continue
 		}
-		if len(msgResult.Messages) <= 0 {
-			fmt.Printf("no messages in queue\n")
-			// time.Sleep(10 * time.Second)
-			continue
-		}
+		fmt.Println(len(msgResult.Messages))
+		if len(msgResult.Messages) > 0 {
+			msgCh <- msgResult
 
-		msgCh <- msgResult
-		go func() {
 			for w := 1; w <= 5; w++ {
 				go a.Worker(msgCh, w)
 			}
-		}()
+
+		}
+		fmt.Printf("no messages in queue\n")
 
 	}
 
@@ -81,26 +78,26 @@ func (a *AWSFs) GetMsg(msgCh chan *sqs.ReceiveMessageOutput) {
 func (a *AWSFs) Worker(msgCh chan *sqs.ReceiveMessageOutput, id int) {
 	for msg := range msgCh {
 		fmt.Printf("worker %v started a job\n", id)
-		go func(msg *sqs.ReceiveMessageOutput) {
+		// go func(msg *sqs.ReceiveMessageOutput) {
 
-			res, err := tools.CreateAndSaveMessages(*msg.Messages[0].Body)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
+		res, err := tools.CreateAndSaveMessages(*msg.Messages[0].Body)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 
-			err = a.UploadMessageTos3(res)
-			if err != nil {
-				return
-			}
-			err = a.DeleteMsg(*msg.Messages[0].ReceiptHandle)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-		}(msg)
+		err = a.UploadMessageTos3(res)
+		if err != nil {
+			return
+		}
+		err = a.DeleteMsg(*msg.Messages[0].ReceiptHandle)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		// }(msg)
 		fmt.Printf("worker %v finished a job\n", id)
-		return
+		// return
 	}
 }
 func (a *AWSFs) DeleteMsg(messageHandle string) error {
