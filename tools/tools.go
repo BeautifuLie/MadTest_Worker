@@ -47,7 +47,7 @@ func CreateAndSaveJokes(joke model.Joke) error {
 }
 func CreateAndSaveMessages(res string) (string, error) {
 
-	filename := time.Now().Format("20060102150405") + ".csv"
+	filename := time.Now().Format("2017-09-07 17:06:04.000000000") + ".csv"
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		_, err := os.Create(filename)

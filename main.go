@@ -24,11 +24,13 @@ func main() {
 	if err != nil {
 		log.Fatal("Error during connect to AWS services", "error", err)
 	}
-	msgCh := make(chan *sqs.ReceiveMessageOutput, 100)
-	go func() {
-		awsstor.GetMsg(msgCh)
+	msgCh := make(chan *sqs.Message, 100)
 
-	}()
+	go awsstor.GetMsg(msgCh)
+
+	for i := 1; i <= 5; i++ {
+		go awsstor.Worker(msgCh, i)
+	}
 
 	c := make(chan struct{})
 	<-c

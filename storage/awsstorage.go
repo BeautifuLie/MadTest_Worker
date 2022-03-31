@@ -49,7 +49,7 @@ func NewAwsStorage(region, id, secret, token string) (*AWSFs, error) {
 	}
 	return conn, nil
 }
-func (a *AWSFs) GetMsg(msgCh chan *sqs.ReceiveMessageOutput) {
+func (a *AWSFs) GetMsg(msgCh chan *sqs.Message) {
 	for {
 		msgResult, err := a.sqsSess.ReceiveMessage(&sqs.ReceiveMessageInput{
 			QueueUrl:            &a.urlQueue,
@@ -61,26 +61,28 @@ func (a *AWSFs) GetMsg(msgCh chan *sqs.ReceiveMessageOutput) {
 			fmt.Printf("failed to fetch sqs message %v", err)
 			continue
 		}
-		fmt.Println(len(msgResult.Messages))
+		fmt.Println("messages len", len(msgResult.Messages))
+
 		if len(msgResult.Messages) > 0 {
-			msgCh <- msgResult
+			for _, msg := range msgResult.Messages {
+				msgCh <- msg
 
-			for w := 1; w <= 5; w++ {
-				go a.Worker(msgCh, w)
 			}
-
 		}
+
 		fmt.Printf("no messages in queue\n")
 
 	}
 
 }
-func (a *AWSFs) Worker(msgCh chan *sqs.ReceiveMessageOutput, id int) {
-	for msg := range msgCh {
-		fmt.Printf("worker %v started a job\n", id)
-		// go func(msg *sqs.ReceiveMessageOutput) {
 
-		res, err := tools.CreateAndSaveMessages(*msg.Messages[0].Body)
+func (a *AWSFs) Worker(msgCh chan *sqs.Message, id int) {
+
+	for msg := range msgCh {
+
+		fmt.Printf("worker %v started a job\n", id)
+
+		res, err := tools.CreateAndSaveMessages(*msg.Body)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -90,15 +92,16 @@ func (a *AWSFs) Worker(msgCh chan *sqs.ReceiveMessageOutput, id int) {
 		if err != nil {
 			return
 		}
-		err = a.DeleteMsg(*msg.Messages[0].ReceiptHandle)
+		err = a.DeleteMsg(*msg.ReceiptHandle)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		// }(msg)
+
 		fmt.Printf("worker %v finished a job\n", id)
-		// return
+
 	}
+
 }
 func (a *AWSFs) DeleteMsg(messageHandle string) error {
 
