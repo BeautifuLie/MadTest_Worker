@@ -1,37 +1,42 @@
 package main
 
 import (
-	"fmt"
-	"log"
 	"os"
+	"os/signal"
+	"program/logging"
+	"program/rmq"
 	"program/storage"
+	"program/worker"
+	"syscall"
 
-	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/joho/godotenv"
+
 	_ "gocloud.dev/blob/s3blob"
 )
 
 func main() {
+	logger := logging.InitZapLog()
+	sch := make(chan os.Signal, 1)
 	err := godotenv.Load(".env")
 	if err != nil {
-		fmt.Println("Error during load environments", err)
+		logger.Errorw("Error during load environments", err)
 	}
-	awsstor, err := storage.NewAwsStorage(
-		os.Getenv("AWS_REGION"),
-		os.Getenv("AWS_ACCESS_KEY_ID"),
-		os.Getenv("AWS_SECRET_ACCESS_KEY"),
-		"")
+
+	s3stor, err := storage.NewS3Storage()
 	if err != nil {
-		log.Fatal("Error during connect to AWS services", "error", err)
+		logger.Errorw("Error during connect to AWS services", "error", err)
 	}
-	msgCh := make(chan *sqs.Message, 100)
-
-	go awsstor.GetMsg(msgCh)
-
-	for i := 1; i <= 5; i++ {
-		go awsstor.Worker(msgCh, i)
+	// sqsstor, err := storage.NewSqsStorage()
+	// if err != nil {
+	// 	logger.Errorw("Error during connect to AWS services", "error", err)
+	// }
+	rabbitstor, err := rmq.NewRabbitStorage(os.Getenv("RABBIT_MQ_URI"))
+	if err != nil {
+		logger.Errorw("Error during connect to RabbitMQ broker", "error", err)
 	}
 
-	c := make(chan struct{})
-	<-c
+	w := worker.NewWorker(rabbitstor, s3stor)
+	w.DoWork(logger)
+	signal.Notify(sch, os.Interrupt, syscall.SIGTERM)
+	<-sch
 }
