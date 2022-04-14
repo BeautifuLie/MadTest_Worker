@@ -46,6 +46,7 @@ func NewRabbitStorage(url string) (*RabbitFs, error) {
 	}
 	return c, nil
 }
+
 func (r *RabbitFs) StartListen(msgCh chan string) {
 
 	msgs, err := r.rabbitChannel.Consume(
@@ -64,7 +65,7 @@ func (r *RabbitFs) StartListen(msgCh chan string) {
 	go func() {
 		for msg := range msgs {
 			msgCh <- string(msg.Body)
-			// msg.Ack(true)
+			msg.Ack(true)
 		}
 	}()
 

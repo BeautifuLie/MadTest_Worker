@@ -26,7 +26,7 @@ func main() {
 	if err != nil {
 		logger.Errorw("Error during connect to AWS services", "error", err)
 	}
-	// sqsstor, err := storage.NewSqsStorage()
+	// sqsstor, err := sqs.NewSqsStorage()
 	// if err != nil {
 	// 	logger.Errorw("Error during connect to AWS services", "error", err)
 	// }
