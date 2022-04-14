@@ -35,7 +35,7 @@ func NewRabbitStorage(url string) (*RabbitFs, error) {
 	if err != nil {
 		return nil, err
 	}
-	// err = ch.Qos(1, 0, true)
+	err = ch.Qos(1, 0, true)
 	if err != nil {
 		return nil, err
 	}
@@ -70,10 +70,6 @@ func (r *RabbitFs) StartListen(msgCh chan string) {
 	}()
 
 }
-
-// func MsgsToString(msgs interface{}) chan string {
-
-// }
 
 // func (r *RabbitFs) Worker(msgs chan string, id int) {
 
