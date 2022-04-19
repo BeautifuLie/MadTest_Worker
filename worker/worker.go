@@ -1,9 +1,8 @@
 package worker
 
 import (
+	"fmt"
 	"io"
-	"strings"
-	"time"
 
 	"go.uber.org/zap"
 )
@@ -41,12 +40,12 @@ func (w *Worker) DoWork(logger *zap.SugaredLogger) {
 func (w *Worker) processMessage(msgs chan string, id int, logger *zap.SugaredLogger) {
 	for msg := range msgs {
 		logger.Infof("worker %v started a job", id)
-		name := time.Now().Format("2017-09-07 17:06:04.000000000")
-
-		err := w.storage.UploadMessageTos3(name, strings.NewReader(msg))
-		if err != nil {
-			logger.Errorw("Upload message to S3 error", err)
-		}
+		// name := time.Now().Format("2017-09-07 17:06:04.000000000")
+		fmt.Println(msg)
+		// err := w.storage.UploadMessageTos3(name, strings.NewReader(msg))
+		// if err != nil {
+		// 	logger.Errorw("Upload message to S3 error", err)
+		// }
 		logger.Infof("worker %v finished a job", id)
 	}
 
