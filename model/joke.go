@@ -6,3 +6,7 @@ type Joke struct {
 	Score int    `json:"score" bson:"score"`
 	ID    string `json:"id" bson:"id"`
 }
+type Message interface {
+	GetBody() string
+	Finalize(success bool)
+}

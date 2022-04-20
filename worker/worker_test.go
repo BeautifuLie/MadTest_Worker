@@ -3,6 +3,7 @@ package worker
 import (
 	"program/logging"
 	"program/mockmessages"
+	"program/model"
 	"program/rmq"
 	"program/storage"
 
@@ -19,11 +20,12 @@ func TestWorker(t *testing.T) {
 	if err != nil {
 		logger.Errorw("Error during connect to RabbitMQ broker", "error", err)
 	}
-
-	w := NewWorker(rabbitstor, s3stor)
-	mockCh := make(chan string, 10)
+	closeCh := make(chan struct{})
+	w := NewWorker(rabbitstor, s3stor, closeCh)
+	mockCh := make(chan model.Message, 10)
 	msgChan := mockmessages.MockMessages(mockCh)
-	for i := 1; i <= 5; i++ {
+
+	for i := 1; i <= len(msgChan); i++ {
 		go w.processMessage(msgChan, i, logger)
 	}
 }

@@ -2,6 +2,7 @@ package sqs
 
 import (
 	"fmt"
+	"program/model"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -13,18 +14,25 @@ type AwsSQS struct {
 	bucketSQS string
 	urlQueue  string
 }
+type SQSMessage struct {
+	sqsSess *sqs.SQS
+	message *sqs.Message
+}
 
+func (m *SQSMessage) GetBody() string {
+	return *m.message.Body
+}
+func (m *SQSMessage) Finalize(success bool) {
+	_, err := m.sqsSess.DeleteMessage(&sqs.DeleteMessageInput{
+		QueueUrl:      aws.String("https://sqs.eu-central-1.amazonaws.com/333746971525/JokesQueueSend"),
+		ReceiptHandle: m.message.ReceiptHandle,
+	})
+	if err != nil {
+		fmt.Printf("delete error - %v", err)
+	}
+}
 func NewSqsStorage() (*AwsSQS, error) {
 
-	// session, err := session.NewSession(
-	// 	&aws.Config{
-	// 		Region: &region,
-	// 		Credentials: credentials.NewStaticCredentials(
-	// 			id,
-	// 			secret,
-	// 			token,
-	// 		),
-	// 	})
 	session := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
@@ -33,13 +41,13 @@ func NewSqsStorage() (*AwsSQS, error) {
 	conn := &AwsSQS{
 
 		sqsSess:   sqsSess,
-		bucketSQS: *aws.String("jokes-sqs-messages"),
-		urlQueue:  *aws.String("https://sqs.eu-central-1.amazonaws.com/333746971525/JokesQueueSend"),
+		bucketSQS: "jokes-sqs-messages",
+		urlQueue:  "https://sqs.eu-central-1.amazonaws.com/333746971525/JokesQueueSend",
 	}
 	return conn, nil
 }
 
-func (a *AwsSQS) StartListen(msgCh chan string) {
+func (a *AwsSQS) StartListen(msgCh chan model.Message) {
 	for {
 		msgResult, err := a.sqsSess.ReceiveMessage(&sqs.ReceiveMessageInput{
 			QueueUrl:            &a.urlQueue,
@@ -51,47 +59,22 @@ func (a *AwsSQS) StartListen(msgCh chan string) {
 			fmt.Printf("failed to fetch sqs message %v", err)
 			continue
 		}
-
 		if len(msgResult.Messages) <= 0 {
 			fmt.Printf("no messages in queue\n")
 			continue
 		}
 
 		for _, msg := range msgResult.Messages {
-
-			msgCh <- *msg.Body
-			a.DeleteMsg(*msg.ReceiptHandle)
-
+			msgCh <- &SQSMessage{
+				sqsSess: a.sqsSess,
+				message: msg,
+			}
 		}
 
 	}
 
 }
 
-// func (a *AwsSQS) Worker(msgCh chan string, id int) {
-
-// 	for msg := range msgCh {
-
-// 		fmt.Printf("worker %v started a job\n", id)
-
-// 		name := time.Now().Format("2017-09-07 17:06:04.000000000")
-// 		// err := UploadMessageTos3(name, strings.NewReader(msg))
-// 		s3s, err := NewS3Storage()
-// 		if err != nil {
-// 			return
-// 		}
-// 		s3s.UploadMessageTos3(name, strings.NewReader(msg))
-// 		// err = a.DeleteMsg(*msg.ReceiptHandle)
-// 		// if err != nil {
-// 		// 	fmt.Println(err)
-// 		// 	return
-// 		// }
-
-// 		fmt.Printf("worker %v finished a job\n", id)
-
-// 	}
-
-// }
 func (a *AwsSQS) DeleteMsg(messageHandle string) error {
 
 	_, err := a.sqsSess.DeleteMessage(&sqs.DeleteMessageInput{

@@ -6,7 +6,21 @@ import (
 	"program/model"
 )
 
-func MockMessages(mockCh chan string) chan string {
+type MockMessage struct {
+	message string
+}
+
+func (m *MockMessage) GetBody() string {
+	return m.message
+}
+func (m *MockMessage) Finalize(success bool) {
+	if success {
+		fmt.Println("1")
+	} else {
+		fmt.Println("2")
+	}
+}
+func MockMessages(mockCh chan model.Message) chan model.Message {
 	joke1 := model.Joke{
 		Title: "title",
 		Body:  "body",
@@ -32,7 +46,9 @@ func MockMessages(mockCh chan string) chan string {
 		if err != nil {
 			fmt.Println(err)
 		}
-		mockCh <- string(out)
+		mockCh <- &MockMessage{
+			message: string(out),
+		}
 	}
 	return mockCh
 

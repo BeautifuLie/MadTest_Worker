@@ -4,7 +4,7 @@ import (
 	"os"
 	"os/signal"
 	"program/logging"
-	"program/rmq"
+	"program/sqs"
 	"program/storage"
 	"program/worker"
 	"syscall"
@@ -26,17 +26,20 @@ func main() {
 	if err != nil {
 		logger.Errorw("Error during connect to AWS services", "error", err)
 	}
-	// sqsstor, err := sqs.NewSqsStorage()
-	// if err != nil {
-	// 	logger.Errorw("Error during connect to AWS services", "error", err)
-	// }
-	rabbitstor, err := rmq.NewRabbitStorage(os.Getenv("RABBIT_MQ_URI"))
+	sqsstor, err := sqs.NewSqsStorage()
 	if err != nil {
-		logger.Errorw("Error during connect to RabbitMQ broker", "error", err)
+		logger.Errorw("Error during connect to AWS services", "error", err)
 	}
-
-	w := worker.NewWorker(rabbitstor, s3stor)
+	// rabbitstor, err := rmq.NewRabbitStorage(os.Getenv("RABBIT_MQ_URI"))
+	// if err != nil {
+	// 	logger.Errorw("Error during connect to RabbitMQ broker", "error", err)
+	// }
+	closeCh := make(chan struct{})
+	w := worker.NewWorker(sqsstor, s3stor, closeCh)
 	w.DoWork(logger)
 	signal.Notify(sch, os.Interrupt, syscall.SIGTERM)
-	<-sch
+
+	sig := <-sch
+	logger.Infof("got signal:%v", sig)
+	w.Stop()
 }

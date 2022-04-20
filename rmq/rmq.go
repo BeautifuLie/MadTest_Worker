@@ -2,6 +2,7 @@ package rmq
 
 import (
 	"fmt"
+	"program/model"
 
 	"github.com/streadway/amqp"
 )
@@ -10,6 +11,20 @@ type RabbitFs struct {
 	rabbitConn    *amqp.Connection
 	rabbitChannel *amqp.Channel
 	rabbitQueue   amqp.Queue
+}
+type RabbitMQMessage struct {
+	message amqp.Delivery
+}
+
+func (m *RabbitMQMessage) GetBody() string {
+	return string(m.message.Body)
+}
+func (m *RabbitMQMessage) Finalize(success bool) {
+	if success {
+		m.message.Ack(false)
+	} else {
+		m.message.Nack(true, false)
+	}
 }
 
 func NewRabbitStorage(url string) (*RabbitFs, error) {
@@ -47,7 +62,7 @@ func NewRabbitStorage(url string) (*RabbitFs, error) {
 	return c, nil
 }
 
-func (r *RabbitFs) StartListen(msgCh chan string) {
+func (r *RabbitFs) StartListen(msgCh chan model.Message) {
 
 	msgs, err := r.rabbitChannel.Consume(
 		r.rabbitQueue.Name,
@@ -64,36 +79,12 @@ func (r *RabbitFs) StartListen(msgCh chan string) {
 	}
 	go func() {
 		for msg := range msgs {
-			msgCh <- string(msg.Body)
-			msg.Ack(true)
+			msgCh <- &RabbitMQMessage{
+				message: msg,
+			}
+
 		}
+
 	}()
 
 }
-
-// func (r *RabbitFs) Worker(msgs chan string, id int) {
-
-// 	for msg := range msgs {
-
-// 		fmt.Printf("worker %v started a job\n", id)
-
-// 		name := time.Now().Format("2017-09-07 17:06:04.000000000")
-// 		s3s, err := NewS3Storage()
-// 		if err != nil {
-// 			return
-// 		}
-// 		s3s.UploadMessageTos3(name, strings.NewReader(msg))
-// 		if err != nil {
-// 			return
-// 		}
-
-// 		// err = msg.Ack(false)
-// 		// if err != nil {
-// 		// 	fmt.Println(err)
-// 		// 	return
-// 		// }
-// 		fmt.Printf("worker %v finished a job\n", id)
-
-// 	}
-
-// }
