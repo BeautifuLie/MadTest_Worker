@@ -10,7 +10,6 @@ import (
 type RabbitFs struct {
 	rabbitConn    *amqp.Connection
 	rabbitChannel *amqp.Channel
-	rabbitQueue   amqp.Queue
 }
 type RabbitMQMessage struct {
 	message amqp.Delivery
@@ -20,10 +19,15 @@ func (m *RabbitMQMessage) GetBody() string {
 	return string(m.message.Body)
 }
 func (m *RabbitMQMessage) Finalize(success bool) {
+
 	if success {
 		m.message.Ack(false)
+
 	} else {
-		m.message.Nack(true, false)
+		if m.message.Redelivered {
+			m.message.Nack(false, false)
+		}
+		m.message.Nack(false, true)
 	}
 }
 
@@ -39,13 +43,15 @@ func NewRabbitStorage(url string) (*RabbitFs, error) {
 	}
 	// defer ch.Close()
 
-	q, err := ch.QueueDeclare(
+	_, err = ch.QueueDeclare(
 		"jokes-message",
 		true,
 		false,
 		false,
 		false,
-		nil,
+		amqp.Table{
+			"x-dead-letter-exchange": "exchange-for-dlq",
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -57,7 +63,6 @@ func NewRabbitStorage(url string) (*RabbitFs, error) {
 	c := &RabbitFs{
 		rabbitConn:    conn,
 		rabbitChannel: ch,
-		rabbitQueue:   q,
 	}
 	return c, nil
 }
@@ -65,7 +70,7 @@ func NewRabbitStorage(url string) (*RabbitFs, error) {
 func (r *RabbitFs) StartListen(msgCh chan model.Message) {
 
 	msgs, err := r.rabbitChannel.Consume(
-		r.rabbitQueue.Name,
+		"jokes-message",
 		"",
 		false,
 		false,
